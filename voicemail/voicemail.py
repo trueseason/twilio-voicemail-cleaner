@@ -2,6 +2,7 @@ import datetime
 import requests as req
 import base64
 from enum import Enum
+from requests.auth import HTTPBasicAuth
 
 class DateFilter(Enum):
     EXACT_DATE_ONLY = 1
@@ -13,43 +14,39 @@ class Voicemail:
     pageSize = 100
 
     def __init__(self, account_id, auth_token):
-        self.account_id = account_id
-        self.auth_token = auth_token
         self.twilio_base_url = f'{self.root_url}/2010-04-01/Accounts/{account_id}'
-        self.access_token = base64.b64encode(
-            f'{account_id}:{auth_token}'.encode('utf-8')).decode("utf-8")
-        self.auth_header = {'Authorization': f'Basic {self.access_token}'}
+        self.twilio_auth = HTTPBasicAuth(account_id, auth_token)
 
     def list_voicemails(self, url):
-        return self.http_get(url, self.auth_header)
+        return self.http_get(url)
 
     def list_voicemails_by_date(self, date_created, filter=DateFilter.EXACT_DATE_ONLY):
         date_filter = "=" if filter is DateFilter.EXACT_DATE_ONLY else "<=" if filter is DateFilter.INCLUDE_EARLIER_DATES else ">="
         date_created = date_created if filter is not DateFilter.INCLUDE_EARLIER_DATES else date_created + datetime.timedelta(days=1)
         url = f'{self.twilio_base_url}/Recordings.json?PageSize={self.pageSize}&DateCreated{date_filter}{date_created.strftime("%Y-%m-%d")}'
-        return self.http_get(url, self.auth_header)
+        return self.http_get(url)
 
     def delete_voicemails_by_date(self, date_created, filter=DateFilter.EXACT_DATE_ONLY, recordLimit=10000):
         res = self.list_voicemails_by_date(date_created, filter)
         while True:
             for vm in res["recordings"]:
-                self.http_delete(f'{self.root_url}/{vm["uri"]}', self.auth_header)
+                self.http_delete(f'{self.root_url}/{vm["uri"]}')
             if not res["next_page_uri"] or res["end"] >= recordLimit:
                 return res["end"] if res["end"] == 0 else res["end"]+1
             res = self.list_voicemails(
                 url=f'{self.root_url}/{res["next_page_uri"]}')
 
     def http_get(self, url, headers={}):
-        res = req.get(url, headers=headers)
+        res = req.get(url, auth=self.twilio_auth, headers=headers)
         res.raise_for_status()
         return res.json()
 
     def http_post(self, url, headers={}, data={}):
-        res = req.post(url, headers=headers, data=data)
+        res = req.post(url, auth=self.twilio_auth, headers=headers, data=data)
         res.raise_for_status()
         return res.json()
 
     def http_delete(self, url, headers={}):
-        res = req.delete(url, headers=headers)
+        res = req.delete(url, auth=self.twilio_auth, headers=headers)
         res.raise_for_status()
         return res.json()
