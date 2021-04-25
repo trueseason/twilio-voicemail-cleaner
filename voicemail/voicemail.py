@@ -1,8 +1,7 @@
 import datetime
-import requests as req
+import requests
 import base64
 from enum import Enum
-from requests.auth import HTTPBasicAuth
 
 class DateFilter(Enum):
     EXACT_DATE_ONLY = 1
@@ -15,7 +14,8 @@ class Voicemail:
 
     def __init__(self, account_id, auth_token):
         self.twilio_base_url = f'{self.root_url}/2010-04-01/Accounts/{account_id}'
-        self.twilio_auth = HTTPBasicAuth(account_id, auth_token)
+        self.twilio_session = requests.Session()
+        self.twilio_session.auth = (account_id, auth_token)
 
     def list_voicemails(self, url):
         return self.http_get(url)
@@ -36,17 +36,17 @@ class Voicemail:
             res = self.list_voicemails(
                 url=f'{self.root_url}/{res["next_page_uri"]}')
 
-    def http_get(self, url, headers={}):
-        res = req.get(url, auth=self.twilio_auth, headers=headers)
+    def http_get(self, url):
+        res = self.twilio_session.get(url)
         res.raise_for_status()
         return res.json()
 
-    def http_post(self, url, headers={}, data={}):
-        res = req.post(url, auth=self.twilio_auth, headers=headers, data=data)
+    def http_post(self, url, data={}):
+        res = self.twilio_session.post(url, data=data)
         res.raise_for_status()
         return res.json()
 
-    def http_delete(self, url, headers={}):
-        res = req.delete(url, auth=self.twilio_auth, headers=headers)
+    def http_delete(self, url):
+        res = self.twilio_session.delete(url)
         res.raise_for_status()
         return res.json()
