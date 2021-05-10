@@ -1,4 +1,4 @@
-# twilio-voicemail-cleaner
+# twilio-voicemail-eraser
 
 This repository is a helper function for deleting Twilio voicemails based on the dates specified.
 
